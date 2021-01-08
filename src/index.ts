@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
+import clearPrefix from './util/clearPrefix';
 import getInputs from './util/input';
-import { genToken } from './util/token';
+import { genMac, genToken } from './util/token';
 import { upload } from './util/upload';
 
 const main = async () => {
@@ -12,9 +13,21 @@ const main = async () => {
       bucket,
       ignoreSourceMap,
       sourceDir,
-      destDir
+      destDir,
+      clear,
+      zone
     } = getInputs();
     const token = genToken(bucket, accessKey, secretKey);
+
+    if (clear) {
+      try {
+        await clearPrefix(destDir, bucket, genMac(accessKey, secretKey), zone);
+      } catch (e) {
+        core.warning('something get wrong when clear destDir');
+        core.warning(e);
+      }
+    }
+
     await upload(
       token,
       sourceDir,

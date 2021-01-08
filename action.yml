@@ -27,6 +27,14 @@ inputs:
     description: 'exclude files'
     default: '[]'
     required: false
+  clear:
+    description: 'is clear dest_dir before upload'
+    default: false
+    required: false
+  zone:
+    description: 'bucket zone'
+    default: 'huanan'
+    required: false
 runs:
   using: 'node12'
   main: 'dist/index.js'
