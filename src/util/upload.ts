@@ -14,10 +14,9 @@ export function upload(
   destDir: string,
   ignoreSourceMap: boolean,
   onProgress: (srcFile: string, destFile: string) => void,
-  onComplete: () => void,
-  onFail: (errorInfo: any) => void,
+
   exclude: RegExp[] = []
-): void {
+) {
   const baseDir = path.resolve(process.cwd(), srcDir);
   const files = glob.sync(`${baseDir}/**/*`, { nodir: true });
 
@@ -53,5 +52,5 @@ export function upload(
     })
     .filter(item => !!item) as (() => Promise<any>)[];
 
-  pAll(tasks, { concurrency: 5 }).then(onComplete).catch(onFail);
+  return pAll(tasks, { concurrency: 5 });
 }

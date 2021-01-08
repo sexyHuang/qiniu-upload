@@ -1,0 +1,32 @@
+name: 'Qiniu Upload'
+description: 'github action for uploading files to qiniu'
+author: 'Jianyong Huang'
+inputs:
+  access_key:
+    description: 'access key'
+    required: true
+  secret_key:
+    description: 'secret key'
+    required: true
+  bucket:
+    description: 'bucket'
+    required: true
+  source_dir:
+    description: 'source dir'
+    default: './'
+    required: false
+  dest_dir:
+    description: 'dest dir, namely key prefix'
+    default: '/'
+    required: false
+  ignore_source_map:
+    description: 'ignore source maps'
+    default: true
+    required: false
+  exclude:
+    description: 'exclude files'
+    default: '[]'
+    required: false
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
