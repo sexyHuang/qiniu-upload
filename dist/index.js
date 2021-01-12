@@ -42299,7 +42299,7 @@ FormUploader.prototype.putFile = function (uploadToken, key, localFile, putExtra
     if (!putExtra.fname) {
         putExtra.fname = path.basename(localFile);
     }
-
+    console.log(putExtra.mimeType);
     return this.putStream(uploadToken, key, fsStream, putExtra, callbackFunc);
 };
 
