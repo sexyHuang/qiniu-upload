@@ -42291,7 +42291,7 @@ FormUploader.prototype.putFile = function (uploadToken, key, localFile, putExtra
     callbackFunc) {
     putExtra = putExtra || new PutExtra();
     var fsStream = fs.createReadStream(localFile);
-    console.log('before:',putExtra.mimeType);
+    console.log(localFile)
     if (!putExtra.mimeType) {
         putExtra.mimeType = mime.getType(localFile);
     }
@@ -42299,7 +42299,7 @@ FormUploader.prototype.putFile = function (uploadToken, key, localFile, putExtra
     if (!putExtra.fname) {
         putExtra.fname = path.basename(localFile);
     }
-    console.log('after:',putExtra.mimeType);
+    console.log(putExtra.mimeType)
     return this.putStream(uploadToken, key, fsStream, putExtra, callbackFunc);
 };
 
@@ -63742,13 +63742,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
+const clearPrefix_1 = __importDefault(__nccwpck_require__(3818));
 const input_1 = __importDefault(__nccwpck_require__(5486));
 const token_1 = __nccwpck_require__(7971);
 const upload_1 = __nccwpck_require__(3854);
 const main = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { accessKey, secretKey, exclude, bucket, ignoreSourceMap, sourceDir, destDir } = input_1.default();
+        const { accessKey, secretKey, exclude, bucket, ignoreSourceMap, sourceDir, destDir, clear, zone } = input_1.default();
         const token = token_1.genToken(bucket, accessKey, secretKey);
+        if (clear) {
+            try {
+                yield clearPrefix_1.default(destDir, bucket, token_1.genMac(accessKey, secretKey), zone);
+                core.info(`clear prefix success`);
+            }
+            catch (e) {
+                core.warning('something get wrong when clear destDir');
+                core.warning(e);
+            }
+        }
         yield upload_1.upload(token, sourceDir, destDir, ignoreSourceMap, (file, key) => {
             core.info(`success: ${file} => [${bucket}]: ${key}`);
         }, exclude);
@@ -63759,6 +63770,79 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 main();
+
+
+/***/ }),
+
+/***/ 3818:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.batch = exports.listPrefix = void 0;
+const qiniu_1 = __importDefault(__nccwpck_require__(1967));
+const SUCCESS_CODE = 200;
+const MAX = 1000;
+const listPrefix = (prefix, bucket, bucketManager, limit = 10, marker) => {
+    return new Promise((resolve, reject) => {
+        bucketManager.listPrefix(bucket, {
+            prefix,
+            limit,
+            marker
+        }, (err, res, resInfo) => __awaiter(void 0, void 0, void 0, function* () {
+            if (err || resInfo.statusCode !== SUCCESS_CODE) {
+                reject(err);
+                return;
+            }
+            const nextMarker = res.marker;
+            const list = res.items.map(item => item.key);
+            let nextList = [];
+            if (nextMarker)
+                nextList = yield exports.listPrefix(prefix, bucket, bucketManager, limit, nextMarker);
+            resolve([...list, ...nextList]);
+        }));
+    });
+};
+exports.listPrefix = listPrefix;
+const batch = (operations, bucketManager) => {
+    if (!operations.length)
+        return Promise.resolve([]);
+    const [curr, next] = [operations.slice(0, MAX), operations.slice(MAX)];
+    return new Promise((resolve, reject) => {
+        bucketManager.batch(curr, (err, response, resInfo) => __awaiter(void 0, void 0, void 0, function* () {
+            if (err || resInfo.statusCode !== SUCCESS_CODE) {
+                reject(err);
+                return;
+            }
+            resolve([response, ...(yield exports.batch(next, bucketManager))]);
+        }));
+    });
+};
+exports.batch = batch;
+const clearPrefix = (prefix, bucket, mac, zone = qiniu_1.default.zone.Zone_z2) => __awaiter(void 0, void 0, void 0, function* () {
+    const config = new qiniu_1.default.conf.Config({
+        zone
+    });
+    const bucketManager = new qiniu_1.default.rs.BucketManager(mac, config);
+    const list = yield exports.listPrefix(prefix, bucket, bucketManager, 50);
+    const deleteOperations = list.map(key => qiniu_1.default.rs.deleteOp(bucket, key));
+    const res = yield exports.batch(deleteOperations, bucketManager);
+    return res;
+});
+exports.default = clearPrefix;
 
 
 /***/ }),
@@ -63787,8 +63871,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
+const qiniu_1 = __importDefault(__nccwpck_require__(1967));
 var InputKey;
 (function (InputKey) {
     InputKey["ACCESS_KEY"] = "access_key";
@@ -63798,14 +63886,25 @@ var InputKey;
     InputKey["DEST_DIR"] = "dest_dir";
     InputKey["IGNORE_SOURCE_MAP"] = "ignore_source_map";
     InputKey["EXCLUDE"] = "exclude";
+    InputKey["CLEAR"] = "clear";
+    InputKey["ZONE"] = "zone";
 })(InputKey || (InputKey = {}));
+const zoneMap = new Map([
+    ['huadong', qiniu_1.default.zone.Zone_z0],
+    ['huabei', qiniu_1.default.zone.Zone_z1],
+    ['huanan', qiniu_1.default.zone.Zone_z2],
+    ['na', qiniu_1.default.zone.Zone_na0],
+    ['asia', qiniu_1.default.zone.Zone_as0]
+]);
 const getInputs = () => {
     const accessKey = core.getInput(InputKey.ACCESS_KEY);
     const secretKey = core.getInput(InputKey.SECRET_KEY);
     const bucket = core.getInput(InputKey.BUCKET);
     const sourceDir = core.getInput(InputKey.SOURCE_DIR);
     const destDir = core.getInput(InputKey.DEST_DIR);
+    const zoneStr = core.getInput(InputKey.ZONE);
     const ignoreSourceMap = core.getInput(InputKey.IGNORE_SOURCE_MAP) === 'true';
+    const clear = core.getInput(InputKey.CLEAR) === 'true';
     let exclude = [];
     try {
         exclude = JSON.parse(core.getInput(InputKey.EXCLUDE)).map((val) => new RegExp(val));
@@ -63813,6 +63912,9 @@ const getInputs = () => {
     catch (e) {
         // do nothing
     }
+    const zone = zoneMap.has(zoneStr)
+        ? zoneMap.get(zoneStr)
+        : zoneMap.get('huanan');
     return {
         accessKey,
         secretKey,
@@ -63820,7 +63922,9 @@ const getInputs = () => {
         sourceDir,
         destDir,
         ignoreSourceMap,
-        exclude
+        exclude,
+        clear,
+        zone
     };
 };
 exports.default = getInputs;
@@ -63837,10 +63941,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.genToken = void 0;
+exports.genToken = exports.genMac = void 0;
 const qiniu_1 = __importDefault(__nccwpck_require__(1967));
+const genMac = (ak, sk) => {
+    return new qiniu_1.default.auth.digest.Mac(ak, sk);
+};
+exports.genMac = genMac;
 function genToken(bucket, ak, sk) {
-    const mac = new qiniu_1.default.auth.digest.Mac(ak, sk);
+    const mac = exports.genMac(ak, sk);
     const putPolicy = new qiniu_1.default.rs.PutPolicy({
         scope: bucket
     });
@@ -63875,7 +63983,6 @@ function upload(token, srcDir, destDir, ignoreSourceMap, onProgress, exclude = [
     const files = glob_1.default.sync(`${baseDir}/**/*`, { nodir: true });
     const config = new qiniu_1.default.conf.Config();
     const uploader = new qiniu_1.default.form_up.FormUploader(config);
-    const putExtra = new qiniu_1.default.form_up.PutExtra();
     const tasks = files
         .map(file => {
         if (exclude.some(reg => reg.test(file)))
@@ -63885,6 +63992,7 @@ function upload(token, srcDir, destDir, ignoreSourceMap, onProgress, exclude = [
         if (ignoreSourceMap && file.endsWith('.map'))
             return null;
         const task = () => new Promise((resolve, reject) => {
+            const putExtra = new qiniu_1.default.form_up.PutExtra();
             uploader.putFile(token, key, file, putExtra, (err, body, info) => {
                 if (err)
                     return reject(new Error(`Upload failed: ${file}`));

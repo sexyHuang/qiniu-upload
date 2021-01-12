@@ -22,7 +22,6 @@ export function upload(
 
   const config = new qiniu.conf.Config();
   const uploader = new qiniu.form_up.FormUploader(config);
-  const putExtra = new qiniu.form_up.PutExtra();
 
   const tasks = files
     .map(file => {
@@ -36,6 +35,7 @@ export function upload(
 
       const task = (): Promise<any> =>
         new Promise((resolve, reject) => {
+          const putExtra = new qiniu.form_up.PutExtra();
           uploader.putFile(token, key, file, putExtra, (err, body, info) => {
             if (err) return reject(new Error(`Upload failed: ${file}`));
 
