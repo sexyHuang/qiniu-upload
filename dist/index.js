@@ -42291,7 +42291,7 @@ FormUploader.prototype.putFile = function (uploadToken, key, localFile, putExtra
     callbackFunc) {
     putExtra = putExtra || new PutExtra();
     var fsStream = fs.createReadStream(localFile);
-
+    console.log('before:',putExtra.mimeType);
     if (!putExtra.mimeType) {
         putExtra.mimeType = mime.getType(localFile);
     }
@@ -42299,7 +42299,7 @@ FormUploader.prototype.putFile = function (uploadToken, key, localFile, putExtra
     if (!putExtra.fname) {
         putExtra.fname = path.basename(localFile);
     }
-    console.log(putExtra.mimeType);
+    console.log('after:',putExtra.mimeType);
     return this.putStream(uploadToken, key, fsStream, putExtra, callbackFunc);
 };
 
