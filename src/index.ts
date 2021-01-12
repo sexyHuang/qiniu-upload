@@ -22,6 +22,7 @@ const main = async () => {
     if (clear) {
       try {
         await clearPrefix(destDir, bucket, genMac(accessKey, secretKey), zone);
+        core.info(`clear prefix success`);
       } catch (e) {
         core.warning('something get wrong when clear destDir');
         core.warning(e);
